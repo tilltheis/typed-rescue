@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Heli Rescue</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"></link>
+    <style>
+      html {
+        position: relative;
+        min-height: 100%;
+      }
+      body {
+        /* Margin bottom by footer height */
+        margin-bottom: 45px;
+      }
+      .footer {
+        position: absolute;
+        bottom: 0;
+        width: 100%;
+        /* Set the fixed height of the footer here */
+        height: 45px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container wrap">
+      <div class="page-header">
+        <h1>Typed Rescue <small>For The Special People</small></h1>
+      </div>
+      <div class="row">
+        <div class="col-md-8">
+          <canvas id="stage"></canvas>
+        </div>
+        <div class="col-md-4">
+          <div class="panel panel-default">
+            <div class="panel-body">
+              <h4>Controls</h4>
+              <dl class="dl-horizontal text-left">
+                <dt>Move</dt>
+                <dd><kbd>←</kbd>, <kbd>→</kbd>, <kbd>↑</kbd>, <kbd>↓</kbd></dd>
+                <dt>Drop Bomb</dt>
+                <dd><kbd>d</kbd></dd>
+                <dt>Fire Missile</dt>
+                <dd><kbd>f</kbd></dd>
+              </dl>
+              <h4>Settings</h4>
+              <div class="checkbox"><label><input id="settings.hitboxesEnabled" type="checkbox"/>Show Hitboxes</label></div>
+              <h4>Credits</h4>
+              <ul>
+                <li>map tileset based on <a href="http://opengameart.org/content/simple-nes-like-platformer-tiles">Simple NES-like Platformer Tiles</a> by <a href="http://opengameart.org/users/surt">surt</a> licensed under <a href="http://creativecommons.org/licenses/by/3.0">CC-BY 3.0</a></li>
+                <li>rocket icon based on <a href="http://opengameart.org/content/various-inventory-24-pixel-icon-set">Various inventory 24 pixel icon set</a> by <a href="http://opengameart.org/users/qubodup">qubodup</a> licensed under <a href="http://creativecommons.org/licenses/by/3.0">CC-BY 3.0</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="text-center">
+        Copyright © 2016 Till Theis<br>Built with 💦, 💕 and 🦄.
+      </div>
+    </div>
+    <script src="./lib/core-2.0.3.min.js"></script>
+    <script src="./lib/pixi-3.0.9.min.js"></script>
+    <script src="./lib/physicstype2d-0.9.min.js"></script>
+    <script src="./lib/rescue.js"></script>
+  </body>
+</html>
