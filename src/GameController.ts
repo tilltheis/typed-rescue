@@ -13,37 +13,18 @@ class GameController {
   ) {}
   
   update() {
-    var speed = 10
-    
-    var xGoal = 0
-    var yGoal = 0
-    
     if (this.keyboard.isKeyPressed(Keyboard.LeftArrow)) {
-      xGoal -= speed
+      this.state.player.moveLeft()
     }
     if (this.keyboard.isKeyPressed(Keyboard.RightArrow)) {
-      xGoal += speed
+      this.state.player.moveRight()
     }
-    
     if (this.keyboard.isKeyPressed(Keyboard.UpArrow)) {
-      yGoal -= speed * 2
+      this.state.player.moveUp()
     }
     if (this.keyboard.isKeyPressed(Keyboard.DownArrow)) {
-      yGoal += speed
+      this.state.player.moveDown()
     }
-    
-    // this.state.player.velocity.x += xGoal
-    // this.state.player.velocity.y += yGoal
-    
-    var xDiff = xGoal - this.state.playerBody.GetLinearVelocity().x
-    var yDiff = yGoal - this.state.playerBody.GetLinearVelocity().y
-    var xImpulse = this.state.playerBody.GetMass() * xDiff
-    var yImpulse = this.state.playerBody.GetMass() * yDiff 
-    this.state.playerBody.ApplyLinearImpulse(
-      new PhysicsType2d.Vector2(xImpulse, yImpulse),
-      this.state.playerBody.GetWorldCenter()
-    )
-    
     
     
     var currentTimestamp = Date.now()

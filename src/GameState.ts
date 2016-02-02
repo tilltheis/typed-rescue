@@ -71,8 +71,6 @@ class GameState {
         this.world = new PhysicsType2d.Dynamics.World(gravity)
         this.world.SetContactListener(this.contactListener)
         
-        this.player = new Player(new Point(0, 0), new Point(0, 0))
-        
         var groundBodyDef = new PhysicsType2d.Dynamics.BodyDefinition()
         groundBodyDef.type = PhysicsType2d.Dynamics.BodyType.STATIC
         var groundBody = this.world.CreateBody(groundBodyDef)
@@ -97,7 +95,7 @@ class GameState {
         playerBodyDef.fixedRotation = true
                     
         var playerBody = this.world.CreateBody(playerBodyDef);
-        playerBody.SetGravityScale(50)
+        // playerBody.SetGravityScale(50)
         // playerBody.SetLinearDamping(0)
         // var playerMassData = new PhysicsType2d.Collision.Shapes.MassData()
         // playerMassData.mass = 50
@@ -122,7 +120,7 @@ class GameState {
 
         var playerFixtureDef = new PhysicsType2d.Dynamics.FixtureDefinition();
         playerFixtureDef.shape = playerShape;
-        playerFixtureDef.density = 10000.0;
+        playerFixtureDef.density = 1.0;
         playerFixtureDef.friction = 0.3;
         playerBody.CreateFixtureFromDefinition(playerFixtureDef);
 
@@ -131,12 +129,13 @@ class GameState {
         playerShape1.m_radius = 1
         var playerFixtureDef1 = new PhysicsType2d.Dynamics.FixtureDefinition();
         playerFixtureDef1.shape = playerShape1;
-        playerFixtureDef1.density = 10000.0;
+        playerFixtureDef1.density = 1.0;
         playerFixtureDef1.friction = 0.3;
         playerBody.CreateFixtureFromDefinition(playerFixtureDef1);
 
 
         this.playerBody = playerBody
+        this.player = new Player(playerBody)
     }
     
     
@@ -155,7 +154,7 @@ class GameState {
 
       var bombFixtureDef = new PhysicsType2d.Dynamics.FixtureDefinition();
       bombFixtureDef.shape = bombShape;
-      bombFixtureDef.density = 1;
+      bombFixtureDef.density = 0.2;
       bombFixtureDef.friction = 0.3;
       bombBody.CreateFixtureFromDefinition(bombFixtureDef);
       
@@ -221,16 +220,8 @@ class GameState {
       var positionIterations = 2; // 3 // Number of iterations the position solver will use
       this.world.Step(timeStep, velocityIterations, positionIterations);
       
-      this.player.position = this.playerBody.GetPosition()
-      this.player.velocity = this.playerBody.GetLinearVelocity()
+      this.player.update()
     }
-}
-
-class Player {
-    constructor(
-        public position: Point,
-        public velocity: Point
-    ) {}
 }
 
 class PhysicsObject {
@@ -240,12 +231,66 @@ class PhysicsObject {
     public body: PhysicsType2d.Dynamics.Body
   ) {}
   
+  update(): void {}
+  
   position(): Point {
     return this.body.GetPosition()
   }
   
+  velocity(): Point {
+    return this.body.GetLinearVelocity()
+  }
+  
   rotation(): number {
     return this.body.GetAngle()
+  }
+}
+
+class Player extends PhysicsObject {
+  private speed = 10
+  
+  constructor(
+    body: PhysicsType2d.Dynamics.Body
+  ) {
+    super(body)
+  }
+  
+  update(): void {
+    var velocity = this.body.GetLinearVelocity()
+    var cappedVelocityX = Math.min(30, velocity.x)
+    var cappedVelocityY = Math.min(30, velocity.y)
+    var rotation = cappedVelocityX / 2
+    this.body.SetTransform(this.body.GetPosition(), rotation * (Math.PI / 180))
+  }
+  
+  private move(x?: number, y?: number): void {
+    var velocity = this.body.GetLinearVelocity()
+    var mass = this.body.GetMass()
+    if (x !== null) {
+      this.body.ApplyLinearImpulse(
+        new PhysicsType2d.Vector2(mass * (x - velocity.x), 0),
+        this.body.GetWorldCenter()
+      )
+    }
+    if (y !== null) {
+      this.body.ApplyLinearImpulse(
+        new PhysicsType2d.Vector2(0, mass * (y - velocity.y)),
+        this.body.GetWorldCenter()
+      )
+    }
+  }
+  
+  moveUp(): void {
+    this.move(null, -30)
+  }
+  moveDown(): void {
+    this.move(null, 30)
+  }
+  moveLeft(): void {
+    this.move(-30, null)
+  }
+  moveRight(): void {
+    this.move(30, null)
   }
 }
 

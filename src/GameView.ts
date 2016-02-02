@@ -189,8 +189,9 @@ class GameView {
   }
     
   update() {
-    this.player.x = this.state.player.position.x * this.state.tileMap.tileSize
-    this.player.y = this.state.player.position.y * this.state.tileMap.tileSize
+    this.player.x = this.state.player.position().x * this.state.tileMap.tileSize
+    this.player.y = this.state.player.position().y * this.state.tileMap.tileSize
+    this.player.rotation = this.state.player.rotation()
 
     // never scroll beyond the edges of the map + cast to int to avoid graphics glitches
     this.viewport.x = Math.min(Math.max(0, this.player.x - this.canvas.width / 3), this.state.tileMap.mapWidth * this.state.tileMap.tileSize - this.viewport.width)
@@ -198,8 +199,8 @@ class GameView {
     this.stats.x = this.viewport.x + 10
     
     this.stats.text =
-      "p: " + this.vectorString(this.state.player.position) + "\n" +
-      "v: " + this.vectorString(this.state.player.velocity) + "\n" +
+      "p: " + this.vectorString(this.state.player.position()) + "\n" +
+      "v: " + this.vectorString(this.state.player.velocity()) + "\n" +
       "fps: " + ~~PIXI.ticker.shared.FPS + "\n" +
       "|cs|: " + this.state.contactListener.contacts.length 
     
@@ -216,6 +217,10 @@ class GameView {
     if (this.hitboxesEnabled) {
       this.contactBoxes = this.contactBoxesShape()
       this.playerBox = this.playerShape()
+      // console.log(this.playerBox.pivot)
+      // this.playerBox.pivot = new PIXI.Point(this.playerBox.position.x + 32, this.playerBox.position.y + 16)
+      // this.playerBox.position = new PIXI.Point(this.state.player.position().x, this.state.player.position().y)
+      this.playerBox.rotation = this.state.player.rotation()
       this.stage.addChild(this.contactBoxes)
       this.stage.addChild(this.playerBox)
     }
