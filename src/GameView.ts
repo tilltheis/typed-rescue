@@ -24,10 +24,10 @@ class GameView {
   public hitboxesEnabled = false
   
   private bombTexture: PIXI.Texture
-  private bombs: Map<Bomb, PIXI.DisplayObject> = new Map<Bomb, PIXI.DisplayObject>()
+  private bombShapes: Map<Bomb, PIXI.DisplayObject> = new Map<Bomb, PIXI.DisplayObject>()
   
   private rocketTexture: PIXI.Texture
-  private rockets: Map<Rocket, PIXI.DisplayObject> = new Map<Rocket, PIXI.DisplayObject>()
+  private rocketShapes: Map<Rocket, PIXI.DisplayObject> = new Map<Rocket, PIXI.DisplayObject>()
   
   private explosionFrames: PIXI.Texture[] = []
   
@@ -38,7 +38,7 @@ class GameView {
   ) {
     this.stage = new PIXI.Container()
     
-    this.layers = this.layersFromTileMap(state.tileMap, assets.tileImage)
+    this.layers = this.layersFromTileMap(state.world.tileMap, assets.tileImage)
     for (var layerName in this.layers) {
         this.stage.addChild(this.layers[layerName])
     }
@@ -111,18 +111,18 @@ class GameView {
   private contactBoxesShape() {
     var contactBoxes = new PIXI.Container()
     var red = 0xff0000
-    this.state.contactListener.contacts.forEach((vs) => {
-      contactBoxes.addChild(this.strokedPolygonShape(vs, red))
-    })
+    // this.state.world.contactListener.contacts.forEach((vs) => {
+    //   contactBoxes.addChild(this.strokedPolygonShape(vs, red))
+    // })
     return contactBoxes
   }
   
   private playerShape() {
     var container = new PIXI.Container()
-    var origin = this.state.playerBody.GetPosition()
+    var origin = this.state.player.physics.position()
     var green = 0x00ff00
     
-    var fixtures = this.state.playerBody.GetFixtures()
+    var fixtures = this.state.player.physics.body.GetFixtures()
     while (fixtures.MoveNext()) {
       var shape = fixtures.Current().GetShape()
       
@@ -139,10 +139,10 @@ class GameView {
       }
     }
     
-    if (this.state.playerBody.GetMassData) {
-      var centerOfMass = this.state.playerBody.GetMassData().center
+    if (this.state.player.physics.body.GetMassData) {
+      var centerOfMass = this.state.player.physics.body.GetMassData().center
       var localOrigin = new Point(origin.x + centerOfMass.x,  origin.y + centerOfMass.y)
-      container.addChild(this.strokedCircleShape(localOrigin, 3 / this.state.tileMap.tileSize, green))
+      container.addChild(this.strokedCircleShape(localOrigin, 3 / this.state.world.tileMap.tileSize, green))
     }
     
     return container
@@ -153,9 +153,9 @@ class GameView {
     graphics
       .lineStyle(1, color)
       .drawCircle(
-        origin.x * this.state.tileMap.tileSize,
-        origin.y * this.state.tileMap.tileSize,
-        radius * this.state.tileMap.tileSize
+        origin.x * this.state.world.tileMap.tileSize,
+        origin.y * this.state.world.tileMap.tileSize,
+        radius * this.state.world.tileMap.tileSize
       )
     return graphics
   }
@@ -164,18 +164,18 @@ class GameView {
     var graphics = new PIXI.Graphics()
     graphics.lineStyle(1, color)
     graphics.moveTo(
-      polygon[0].x * this.state.tileMap.tileSize,
-      polygon[1].y * this.state.tileMap.tileSize
+      polygon[0].x * this.state.world.tileMap.tileSize,
+      polygon[1].y * this.state.world.tileMap.tileSize
     )
     polygon.slice(1).forEach((v) => {
       graphics.lineTo(
-        v.x * this.state.tileMap.tileSize,
-        v.y * this.state.tileMap.tileSize
+        v.x * this.state.world.tileMap.tileSize,
+        v.y * this.state.world.tileMap.tileSize
       )
     })
     graphics.lineTo(
-      polygon[0].x * this.state.tileMap.tileSize,
-      polygon[1].y * this.state.tileMap.tileSize
+      polygon[0].x * this.state.world.tileMap.tileSize,
+      polygon[1].y * this.state.world.tileMap.tileSize
     )
     return graphics
   }
@@ -189,27 +189,32 @@ class GameView {
   }
     
   update() {
-    this.player.x = this.state.player.position().x * this.state.tileMap.tileSize
-    this.player.y = this.state.player.position().y * this.state.tileMap.tileSize
-    this.player.rotation = this.state.player.rotation()
+    this.player.x = this.state.player.physics.position().x * this.state.world.tileMap.tileSize
+    this.player.y = this.state.player.physics.position().y * this.state.world.tileMap.tileSize
+    this.player.rotation = this.state.player.physics.rotation()
 
     // never scroll beyond the edges of the map + cast to int to avoid graphics glitches
-    this.viewport.x = Math.min(Math.max(0, this.player.x - this.canvas.width / 3), this.state.tileMap.mapWidth * this.state.tileMap.tileSize - this.viewport.width)
+    this.viewport.x = Math.min(Math.max(0, this.player.x - this.canvas.width / 3), this.state.world.tileMap.mapWidth * this.state.world.tileMap.tileSize - this.viewport.width)
     this.stage.x = -this.viewport.x
     this.stats.x = this.viewport.x + 10
     
     this.stats.text =
-      "p: " + this.vectorString(this.state.player.position()) + "\n" +
-      "v: " + this.vectorString(this.state.player.velocity()) + "\n" +
-      "fps: " + ~~PIXI.ticker.shared.FPS + "\n" +
-      "|cs|: " + this.state.contactListener.contacts.length 
+      "p: " + this.vectorString(this.state.player.physics.position()) + "\n" +
+      "v: " + this.vectorString(this.state.player.physics.velocity()) + "\n" +
+      "fps: " + ~~PIXI.ticker.shared.FPS + "\n"
     
-    // // only draw what's visible - this gives us a huge performance boost
-    // for (var layerName in this.layers) {
-    //     this.layers[layerName].children.forEach(tile => {
-    //         tile.visible = this.viewport.intersects(tile.getTransformedBounds())
-    //     })
-    // }
+    var playerPosition = this.state.player.physics.position()
+    
+    // only draw what's visible - this gives us a huge performance boost
+    for (var layerName in this.layers) {
+        this.layers[layerName].children.forEach(tile => {
+            var bounds = tile.getBounds()
+            // we don't care about y because we only scroll horizontally
+            tile.visible =
+              this.viewport.contains(playerPosition.x * this.state.world.tileMap.tileSize, 0) ||
+                this.viewport.contains(playerPosition.x * this.state.world.tileMap.tileSize + bounds.width, 0)
+        })
+    }
     
     // hitboxes
     this.stage.removeChild(this.contactBoxes)
@@ -220,78 +225,46 @@ class GameView {
       // console.log(this.playerBox.pivot)
       // this.playerBox.pivot = new PIXI.Point(this.playerBox.position.x + 32, this.playerBox.position.y + 16)
       // this.playerBox.position = new PIXI.Point(this.state.player.position().x, this.state.player.position().y)
-      this.playerBox.rotation = this.state.player.rotation()
+      this.playerBox.rotation = this.state.player.physics.rotation()
       this.stage.addChild(this.contactBoxes)
       this.stage.addChild(this.playerBox)
     }
     
+    var drawExplodables = (explodables, shapeCache, shapeForExplodable) => {
+      shapeCache.forEach((shape, explodable) => {
+        if (explodables.indexOf(explodable) === -1) {
+          shapeCache.delete(explodable)
+          this.stage.removeChild(shape)
+        }
+      })
+      explodables.forEach((explodable) => {
+        if (!shapeCache.has(explodable)) {
+          var shape = shapeForExplodable(explodable)
+          shapeCache.set(explodable, shape)
+          this.stage.addChild(shape)
+        } else if (explodable.hasExploded && !(shapeCache.get(explodable) instanceof PIXI.extras.MovieClip)) {
+          var shape = shapeCache.get(explodable)
+          this.stage.removeChild(shape)
+          var movie = new PIXI.extras.MovieClip(this.explosionFrames);
+          shapeCache.set(explodable, movie)
+          movie.animationSpeed = this.explosionFrames.length / PIXI.ticker.shared.FPS // 1s whole movie
+          movie.loop = false
+          movie.play();
+          this.stage.addChild(movie);
+        }
+        
+        var shape = shapeCache.get(explodable)
+        var position = explodable.physics.position()
+        shape.x = position.x * this.state.world.tileMap.tileSize
+        shape.y = position.y * this.state.world.tileMap.tileSize
+        
+        if (!explodable.hasExploded) {
+          shape.rotation = explodable.physics.rotation()
+        }
+      })
+    }
     
-    // bombs
-    this.bombs.forEach((shape, bomb) => {
-      if (!this.state.bombs.has(bomb)) {
-        this.bombs.delete(bomb)
-        this.stage.removeChild(shape)
-      }
-    })
-    this.state.bombs.forEach((bomb) => {
-      if (!this.bombs.has(bomb)) {
-        var shape = this.bombShape(bomb)
-        this.bombs.set(bomb, shape)
-        this.stage.addChild(shape)
-      } else if (bomb.hasExploded && !(this.bombs.get(bomb) instanceof PIXI.extras.MovieClip)) {
-        var shape = this.bombs.get(bomb)
-        this.stage.removeChild(shape)
-        var movie = new PIXI.extras.MovieClip(this.explosionFrames);
-        this.bombs.set(bomb, movie)
-        movie.animationSpeed = this.explosionFrames.length / PIXI.ticker.shared.FPS // 1s whole movie
-        movie.loop = false
-        movie.play();
-        this.stage.addChild(movie);
-      }
-      
-      var shape = this.bombs.get(bomb)
-      var position = bomb.position()
-      shape.x = position.x * this.state.tileMap.tileSize
-      shape.y = position.y * this.state.tileMap.tileSize
-      
-      if (!bomb.hasExploded) {
-        shape.rotation = bomb.rotation()
-      }
-    })
-    
-    
-    // rockets
-    this.rockets.forEach((shape, rocket) => {
-      if (!this.state.rockets.has(rocket)) {
-        this.rockets.delete(rocket)
-        this.stage.removeChild(shape)
-      }
-    })
-    this.state.rockets.forEach((rocket) => {
-      if (!this.rockets.has(rocket)) {
-        var shape = this.rocketShape(rocket)
-        this.rockets.set(rocket, shape)
-        this.stage.addChild(shape)
-      } else if (rocket.hasExploded && !(this.rockets.get(rocket) instanceof PIXI.extras.MovieClip)) {
-        var shape = this.rockets.get(rocket)
-        this.stage.removeChild(shape)
-        var movie = new PIXI.extras.MovieClip(this.explosionFrames);
-        this.rockets.set(rocket, movie)
-        movie.animationSpeed = this.explosionFrames.length / PIXI.ticker.shared.FPS // 1s whole movie
-        movie.loop = false
-        movie.play();
-        this.stage.addChild(movie);
-      }
-      
-      var shape = this.rockets.get(rocket)
-      var position = rocket.position()
-      shape.x = position.x * this.state.tileMap.tileSize
-      shape.y = position.y * this.state.tileMap.tileSize
-      
-      if (!rocket.hasExploded) {
-        shape.rotation = rocket.rotation()
-      }
-    })
-    
+    drawExplodables(this.state.player.bombs, this.bombShapes, b => this.bombShape(b))
+    drawExplodables(this.state.player.rockets, this.rocketShapes, r => this.rocketShape(r))
   }
 }

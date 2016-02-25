@@ -4,6 +4,7 @@
 /// <reference path="GameController.ts" />
 /// <reference path="TileMapFactory.ts" />
 /// <reference path="Keyboard.ts" />
+/// <reference path="World.ts" />
 
 
 var loader = new PIXI.loaders.Loader("assets/")
@@ -32,7 +33,14 @@ loader.load((_loader, resources) => {
         rocketImage
     )
     
-    var state = new GameState(tileMap)
+    // this will change the canvas size that the view relies on
+    var renderer = PIXI.autoDetectRenderer(640, 480, {
+      view: canvas,
+      backgroundColor : 0xffffff
+    })
+    
+    var world = new World(tileMap)
+    var state = new GameState(world)
     var view = new GameView(state, canvas, assets)
     var controller = new GameController(state, view, keyboard)
     
@@ -41,10 +49,6 @@ loader.load((_loader, resources) => {
     })
     PIXI.ticker.shared.add((delta) => {
         state.update()
-    })
-    var renderer = PIXI.autoDetectRenderer(640, 480, {
-      view: canvas,
-      backgroundColor : 0xffffff
     })
     renderer.roundPixels = true
     PIXI.ticker.shared.add((delta) => {
@@ -62,4 +66,8 @@ loader.load((_loader, resources) => {
     hitBoxesEnabledInput.addEventListener("change", (event) => {
       enableHitboxes((<HTMLInputElement>event.target).checked)
     })
+    
+    window['game'] = {
+      view: view
+    }
 })

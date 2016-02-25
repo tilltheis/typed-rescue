@@ -31,12 +31,12 @@ class GameController {
 
     if (this.keyboard.isKeyPressed("d") && this.lastBombTimestamp < (currentTimestamp - 100)) {
       this.lastBombTimestamp = currentTimestamp
-      this.state.dropBomb()
+      this.state.player.dropBomb()
     }
     
     if (this.keyboard.isKeyPressed("f") && this.lastRocketTimestamp < (currentTimestamp - 100)) {
       this.lastRocketTimestamp = currentTimestamp
-      this.state.fireRocket()
+      this.state.player.fireRocket()
     }
   }
 }
