@@ -1,5 +1,5 @@
 /// <reference path="../typings/pixi.js/pixi.js.d.ts" />
-/// <reference path="../typings/core-js/core-js.d.ts" />
+/// <reference path="../typings/immutable/immutable.d.ts" />
 /// <reference path="GameState.ts" />
 
 class Assets {
@@ -24,10 +24,10 @@ class GameView {
   public hitboxesEnabled = false
   
   private bombTexture: PIXI.Texture
-  private bombShapes: Map<Bomb, PIXI.DisplayObject> = new Map<Bomb, PIXI.DisplayObject>()
+  private bombShapes: Immutable.Map<Bomb, PIXI.DisplayObject> = Immutable.Map<Bomb, PIXI.DisplayObject>()
   
   private rocketTexture: PIXI.Texture
-  private rocketShapes: Map<Rocket, PIXI.DisplayObject> = new Map<Rocket, PIXI.DisplayObject>()
+  private rocketShapes: Immutable.Map<Rocket, PIXI.DisplayObject> = Immutable.Map<Rocket, PIXI.DisplayObject>()
   
   private explosionFrames: PIXI.Texture[] = []
   
@@ -229,31 +229,39 @@ class GameView {
       this.stage.addChild(this.contactBoxes)
       this.stage.addChild(this.playerBox)
     }
-    
-    var drawExplodables = (explodables, shapeCache, shapeForExplodable) => {
-      shapeCache.forEach((shape, explodable) => {
-        if (explodables.indexOf(explodable) === -1) {
-          shapeCache.delete(explodable)
-          this.stage.removeChild(shape)
-        }
-      })
-      explodables.forEach((explodable) => {
-        if (!shapeCache.has(explodable)) {
-          var shape = shapeForExplodable(explodable)
-          shapeCache.set(explodable, shape)
-          this.stage.addChild(shape)
-        } else if (explodable.hasExploded && !(shapeCache.get(explodable) instanceof PIXI.extras.MovieClip)) {
-          var shape = shapeCache.get(explodable)
-          this.stage.removeChild(shape)
-          var movie = new PIXI.extras.MovieClip(this.explosionFrames);
-          shapeCache.set(explodable, movie)
-          movie.animationSpeed = this.explosionFrames.length / PIXI.ticker.shared.FPS // 1s whole movie
-          movie.loop = false
-          movie.play();
-          this.stage.addChild(movie);
-        }
         
-        var shape = shapeCache.get(explodable)
+    
+    var mapPartition = <K, V>(xs: Immutable.Map<K, V>, p: (v: V, k: K) => boolean): Array<Immutable.Map<K, V>> => {
+      var [a, b] = [Immutable.Map<K, V>(), Immutable.Map<K, V>()] 
+
+      xs.forEach((v, k) => { if (p(v, k)) a = a.set(k, v); else b = b.set(k, v); })
+      return [a, b]
+    }
+    
+    var drawExplodables = <A extends Explodable>(explodables: Immutable.Set<A>, shapeCache: Immutable.Map<A, PIXI.DisplayObject>, shapeForExplodable: (e: A) => PIXI.DisplayObject) => {
+      var [aliveShapes, deadShapes] = mapPartition(shapeCache, (shape, explodable) => {
+        return explodables.has(explodable)
+      })
+      var [explodedAliveShapes, unexplodedAliveShapes] = mapPartition(aliveShapes, (shape, explodable) => {
+        return explodable.hasExploded && !(shapeCache.get(explodable) instanceof PIXI.extras.MovieClip)
+      })
+      var newUnexplodedShapes = explodables.reduce<Immutable.Map<A, PIXI.DisplayObject>>((cache, shape, explodable) => {
+        if (shapeCache.has(explodable)) return cache; else return cache.set(explodable, shapeForExplodable(explodable)) // Let's hope it didn't explode yet  
+      }, Immutable.Map<A, PIXI.DisplayObject>())
+      var newExplodedShapes = explodedAliveShapes.map((shape, explodable) => {
+        var movie = new PIXI.extras.MovieClip(this.explosionFrames);
+        shapeCache.set(explodable, movie)
+        movie.animationSpeed = this.explosionFrames.length / PIXI.ticker.shared.FPS // 1s whole movie
+        movie.loop = false
+        return movie
+      })
+      
+      deadShapes.merge(explodedAliveShapes).forEach((shape, explodable) => this.stage.removeChild(shape))
+      newUnexplodedShapes.merge(newExplodedShapes).forEach((shape, explodable) => this.stage.addChild(shape))
+      newExplodedShapes.forEach(movie => movie.play())
+      
+      var allAliveShapes = newUnexplodedShapes.merge(newExplodedShapes).merge(unexplodedAliveShapes)
+      allAliveShapes.forEach((shape, explodable) => {
         var position = explodable.physics.position()
         shape.x = position.x * this.state.world.tileMap.tileSize
         shape.y = position.y * this.state.world.tileMap.tileSize
@@ -262,9 +270,11 @@ class GameView {
           shape.rotation = explodable.physics.rotation()
         }
       })
+      
+      return allAliveShapes
     }
     
-    drawExplodables(this.state.player.bombs, this.bombShapes, b => this.bombShape(b))
-    drawExplodables(this.state.player.rockets, this.rocketShapes, r => this.rocketShape(r))
+    this.bombShapes = drawExplodables(Immutable.Set(this.state.player.bombs), this.bombShapes, b => this.bombShape(b))
+    this.rocketShapes = drawExplodables(Immutable.Set(this.state.player.rockets), this.rocketShapes, r => this.rocketShape(r))
   }
 }

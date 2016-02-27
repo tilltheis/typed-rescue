@@ -1,5 +1,5 @@
 /// <reference path="../typings/physicstype2d/physicstype2d.d.ts" />
-/// <reference path="../typings/core-js/core-js.d.ts" />
+/// <reference path="../typings/immutable/immutable.d.ts" />
 /// <reference path="TileMap.ts" />
 
 enum ObjectType {
@@ -85,16 +85,14 @@ class World {
   private world: PhysicsType2d.Dynamics.World
   
   public player: PhysicsObject
-  public bombs: PhysicsObject[] = []
-  public rockets: PhysicsObject[] = []
+  public bombs: Immutable.Set<PhysicsObject> = Immutable.Set<PhysicsObject>()
+  public rockets: Immutable.Set<PhysicsObject> = Immutable.Set<PhysicsObject>()
+
   
   
   private bodyToPhysicsObject(body: PhysicsType2d.Dynamics.Body): PhysicsObject {
-    var result = null
-    if (!result && this.player.body === body) result = this.player
-    for (var i = 0; !result && i < this.rockets.length; i++) { if (this.rockets[i].body === body) result = this.rockets[i] }
-    for (var i = 0; !result && i < this.bombs.length; i++) { if (this.bombs[i].body === body) result = this.bombs[i] }
-    return result
+    var p = (po: PhysicsObject): boolean => { return po.body === body }
+    return Immutable.Set([this.player]).find(p) || this.rockets.find(p) || this.bombs.find(p)
   }
   
   setCollisionHandler(handler: (a: PhysicsObject, b: PhysicsObject) => void): void {
@@ -194,7 +192,7 @@ class World {
     bombBody.SetUserData(ObjectType.Bomb)
     
     var physicsObject = new PhysicsObject(bombBody, this)
-    this.bombs.push(physicsObject)
+    this.bombs = this.bombs.add(physicsObject)
     
     // bombBody.ApplyForceToCenter(new PhysicsType2d.Vector2(0, 200))
     
@@ -225,7 +223,7 @@ class World {
     
     var physicsObject = new PhysicsObject(rocketBody, this)
     
-    this.rockets.push(physicsObject)
+    this.rockets = this.rockets.add(physicsObject)
     
     return physicsObject
   }

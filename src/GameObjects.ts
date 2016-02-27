@@ -68,7 +68,13 @@ class Player {
   }
 }
 
-class Bomb {
+interface Explodable {
+  physics: PhysicsObject
+  hasExploded: boolean
+  explode(): void
+}
+
+class Bomb implements Explodable {
   public hasExploded: boolean = false
   
   constructor(
@@ -88,7 +94,7 @@ class Bomb {
   }
 }
 
-class Rocket {
+class Rocket implements Explodable {
   public hasExploded: boolean = false
   
   constructor(
