@@ -5,9 +5,11 @@
 
 class GameState {
   public player: Player
+  public soldier: Soldier
   
   constructor(public world: World) {
     this.player = new Player(world.createPlayerPhysics())
+    this.soldier = new Soldier(world.createSoldierPhysics())
     
     var lookup: (p: PhysicsObject) => { collide(o: any): void } = (physics) => {
       var result = null

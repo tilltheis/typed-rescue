@@ -1,6 +1,4 @@
-class Point {
-    constructor(public x: number, public y: number) {}
-}
+/// <reference path="Point.ts" />
 
 class TileMap {
     constructor(
