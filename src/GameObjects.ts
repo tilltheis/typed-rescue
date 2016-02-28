@@ -1,5 +1,6 @@
 /// <reference path="GameState.ts" />
 /// <reference path="World.ts" />
+/// <reference path="Point.ts" />
 
 class Player {
   private movementForce = 1500
@@ -48,7 +49,7 @@ class Player {
   
   fireRocket(): void {
     var position = new PhysicsType2d.Vector2(this.physics.position().x + 2, this.physics.position().y + 2.5)
-    var rocket = new Rocket(this.physics.world.createRocketPhysics(position))
+    var rocket = new Rocket(this.physics.world.createRocketPhysics(Point.fromPhysics(position)))
     rocket.physics.setRotation(this.physics.rotation())
     var direction = rocket.physics.worldVector(new Point(1, 0))
     rocket.physics.applyImpulse(new Point(direction.x * 10, direction.y * 10))
@@ -57,7 +58,7 @@ class Player {
   
   dropBomb(): void {
     var position = new PhysicsType2d.Vector2(this.physics.position().x + 2, this.physics.position().y + 2.5)
-    var bomb = new Bomb(this.physics.world.createBombPhysics(position))
+    var bomb = new Bomb(this.physics.world.createBombPhysics(Point.fromPhysics(position)))
     var xImpulse = this.physics.velocity().x / this.physics.body.GetMass()
     bomb.physics.applyImpulse(new Point(xImpulse, 2))
     this.bombs.push(bomb)
@@ -112,4 +113,10 @@ class Rocket implements Explodable {
       this.physics.dead = true
     }, 1000)
   }
+}
+
+class Soldier {
+  constructor(
+    public physics: PhysicsObject
+  ) {}
 }

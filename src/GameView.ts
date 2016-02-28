@@ -1,6 +1,7 @@
 /// <reference path="../typings/pixi.js/pixi.js.d.ts" />
 /// <reference path="../typings/immutable/immutable.d.ts" />
 /// <reference path="GameState.ts" />
+/// <reference path="Point.ts" />
 
 class Assets {
     constructor(
@@ -14,14 +15,13 @@ class Assets {
 class GameView {
   public stage: PIXI.Container
   private player: PIXI.Sprite
+  private soldier: PIXI.DisplayObject
   private viewport: PIXI.Rectangle
   private layers: { [name: string]: PIXI.Container }
   private stats: PIXI.Text
   
-  private contactBoxes: PIXI.DisplayObject
-  private playerBox: PIXI.DisplayObject
-  
   public hitboxesEnabled = false
+  private hitboxes: Array<PIXI.DisplayObject> = []
   
   private bombTexture: PIXI.Texture
   private bombShapes: Immutable.Map<Bomb, PIXI.DisplayObject> = Immutable.Map<Bomb, PIXI.DisplayObject>()
@@ -42,7 +42,7 @@ class GameView {
     for (var layerName in this.layers) {
         this.stage.addChild(this.layers[layerName])
     }
-    
+
     this.player = PIXI.Sprite.fromImage(assets.helicopterImage.src)
     this.stage.addChild(this.player)
     
@@ -75,31 +75,31 @@ class GameView {
     
     var layers: { [name: string]: PIXI.Container } = {}
     for (var layerName in tileMap.layers) {
-        var layerData = tileMap.layers[layerName]
-        
-        var container = new PIXI.Container()
-        
-        for (var y = 0; y < tileMap.mapHeight; y++) {
-            for (var x = 0; x < tileMap.mapWidth; x++) {
-                var tileIndex = layerData[tileMap.tileIndexForMapPoint(x, y)] - 1
-                if (tileIndex === -1) {
-                    continue
-                }
-                var origin = tileMap.tileSetPixelForTileIndex(tileIndex)
-                
-                var frame = new PIXI.Rectangle(origin.x, origin.y, tileMap.tileSize, tileMap.tileSize)
-                var texture = new PIXI.Texture(baseTexture, frame)
-                var sprite = new PIXI.Sprite(texture)
-                sprite.x = x * tileMap.tileSize
-                sprite.y = y * tileMap.tileSize
-                sprite.width = tileMap.tileSize
-                sprite.height = tileMap.tileSize
-                
-                container.addChild(sprite)
-            }
+      var layerData = tileMap.layers[layerName]
+      
+      var container = new PIXI.Container()
+      
+      for (var y = 0; y < tileMap.mapHeight; y++) {
+        for (var x = 0; x < tileMap.mapWidth; x++) {
+          var tileIndex = layerData[tileMap.tileIndexForMapPoint(x, y)] - 1
+          if (tileIndex === -1) {
+              continue
+          }
+          var origin = tileMap.tileSetPixelForTileIndex(tileIndex)
+          
+          var frame = new PIXI.Rectangle(origin.x, origin.y, tileMap.tileSize, tileMap.tileSize)
+          var texture = new PIXI.Texture(baseTexture, frame)
+          var sprite = new PIXI.Sprite(texture)
+          sprite.x = x * tileMap.tileSize
+          sprite.y = y * tileMap.tileSize
+          sprite.width = tileMap.tileSize
+          sprite.height = tileMap.tileSize
+          
+          container.addChild(sprite)
         }
-        
-        layers[layerName] = container
+      }
+      
+      layers[layerName] = container
     }
     return layers
   }
@@ -108,173 +108,188 @@ class GameView {
     return "(" + v.x.toFixed(2) + ", " +  v.y.toFixed(2) + ")"
   }
   
-  private contactBoxesShape() {
-    var contactBoxes = new PIXI.Container()
-    var red = 0xff0000
-    // this.state.world.contactListener.contacts.forEach((vs) => {
-    //   contactBoxes.addChild(this.strokedPolygonShape(vs, red))
-    // })
-    return contactBoxes
-  }
-  
-  private playerShape() {
-    var container = new PIXI.Container()
-    var origin = this.state.player.physics.position()
-    var green = 0x00ff00
-    
-    var fixtures = this.state.player.physics.body.GetFixtures()
-    while (fixtures.MoveNext()) {
-      var shape = fixtures.Current().GetShape()
-      
-      if (shape instanceof PhysicsType2d.Collision.Shapes.PolygonShape) {
-        var b2Polygon = <PhysicsType2d.Collision.Shapes.PolygonShape> shape
-        var polygon = b2Polygon.m_vertices.map((vertex) => {
-            return new Point(origin.x + vertex.x, origin.y + vertex.y)
-        })
-        container.addChild(this.strokedPolygonShape(polygon, green))
-      } else if (shape instanceof PhysicsType2d.Collision.Shapes.CircleShape) {
-        var b2Circle = <PhysicsType2d.Collision.Shapes.CircleShape> shape
-        var localOrigin = new Point(origin.x + b2Circle.m_p.x,  origin.y + b2Circle.m_p.y)
-        container.addChild(this.strokedCircleShape(localOrigin, b2Circle.GetRadius(), green))
-      }
+  private drawHitBoxes(): void {
+    this.hitboxes.forEach(x => this.stage.removeChild(x))
+    if (this.hitboxesEnabled) {
+      var player = this.strokedPhysicsShape(this.state.player.physics, 0x00ff00)
+      var soldier = this.strokedPhysicsShape(this.state.soldier.physics, 0x0000ff)
+      var bombs = this.state.world.bombs.map(x => this.strokedPhysicsShape(x, 0xff0000))
+      var rockets = this.state.world.rockets.map(x => this.strokedPhysicsShape(x, 0xff0000))
+      this.hitboxes = [player, soldier].concat(bombs.toJS()).concat(rockets.toJS())
+      this.hitboxes.forEach(x => this.stage.addChild(x))
     }
-    
-    if (this.state.player.physics.body.GetMassData) {
-      var centerOfMass = this.state.player.physics.body.GetMassData().center
-      var localOrigin = new Point(origin.x + centerOfMass.x,  origin.y + centerOfMass.y)
-      container.addChild(this.strokedCircleShape(localOrigin, 3 / this.state.world.tileMap.tileSize, green))
-    }
-    
-    return container
   }
   
   private strokedCircleShape(origin: Point, radius: number, color: number) {
     var graphics = new PIXI.Graphics()
     graphics
       .lineStyle(1, color)
-      .drawCircle(
-        origin.x * this.state.world.tileMap.tileSize,
-        origin.y * this.state.world.tileMap.tileSize,
-        radius * this.state.world.tileMap.tileSize
-      )
+      .drawCircle(this.scaleScalar(origin.x), this.scaleScalar(origin.y), this.scaleScalar(radius))
     return graphics
   }
   
   private strokedPolygonShape(polygon: Point[], color: number) {
     var graphics = new PIXI.Graphics()
     graphics.lineStyle(1, color)
-    graphics.moveTo(
-      polygon[0].x * this.state.world.tileMap.tileSize,
-      polygon[1].y * this.state.world.tileMap.tileSize
-    )
+    graphics.moveTo(this.scaleScalar(polygon[0].x), this.scaleScalar(polygon[1].y))
     polygon.slice(1).forEach((v) => {
-      graphics.lineTo(
-        v.x * this.state.world.tileMap.tileSize,
-        v.y * this.state.world.tileMap.tileSize
-      )
+      graphics.lineTo(this.scaleScalar(v.x), this.scaleScalar(v.y))
     })
-    graphics.lineTo(
-      polygon[0].x * this.state.world.tileMap.tileSize,
-      polygon[1].y * this.state.world.tileMap.tileSize
-    )
+    graphics.lineTo(this.scaleScalar(polygon[0].x), this.scaleScalar(polygon[1].y))
     return graphics
   }
   
   private bombShape(bomb: Bomb): PIXI.DisplayObject {
-    return new PIXI.Sprite(this.bombTexture)
+    var shape = new PIXI.Sprite(this.bombTexture)
+    
+    // make it behave like a rectangle
+    var bounds = shape.getBounds()
+    shape.pivot.x += bounds.width / 2
+    shape.pivot.y += bounds.height / 2
+    
+    return shape
   }
   
   private rocketShape(rocket: Rocket): PIXI.DisplayObject {
     return new PIXI.Sprite(this.rocketTexture)
   }
+  
+  private strokedPhysicsShape(physics: PhysicsObject, color: number): PIXI.DisplayObject {
+    var shape = new PIXI.Container()
+    shape.position = this.scalePoint(Point.fromPhysics(physics.body.GetPosition())).toPixi()
+    shape.rotation = physics.rotation()
     
-  update() {
-    this.player.x = this.state.player.physics.position().x * this.state.world.tileMap.tileSize
-    this.player.y = this.state.player.physics.position().y * this.state.world.tileMap.tileSize
+    var it = physics.body.GetFixtures()
+    while (it.MoveNext()) {
+      shape.addChild(this.strokedFixtureShape(it.Current(), color))
+    }
+    
+    return shape
+  }
+  
+  private strokedFixtureShape(fixture: PhysicsType2d.Dynamics.Fixture, color: number): PIXI.DisplayObject {
+    switch (fixture.GetType()) {
+      case PhysicsType2d.Collision.Shapes.ShapeType.CIRCLE:
+        var circle = <PhysicsType2d.Collision.Shapes.CircleShape>fixture.GetShape()
+        return this.strokedCircleShape(new Point(circle.m_p.x, circle.m_p.y), circle.m_radius, color)
+        break;
+        
+      case PhysicsType2d.Collision.Shapes.ShapeType.POLYGON:
+        var shape = <PhysicsType2d.Collision.Shapes.PolygonShape>fixture.GetShape()
+        var polygon: Point[] = []
+        shape.m_vertices.forEach((v) => {
+          polygon.push(new Point(v.x, v.y))
+        })
+        return this.strokedPolygonShape(polygon, color)
+    
+      default:
+        console.error("GameView", "fixtureShape", "unsupported fixture shape", fixture.GetType())
+        return new PIXI.Container()
+        break;
+    }
+  }
+  
+  private scaleScalar(x: number): number {
+    return x * this.state.world.tileMap.tileSize
+  }
+  
+  private scalePoint(point: Point): Point {
+    return new Point(this.scaleScalar(point.x), this.scaleScalar(point.y))
+  }
+  
+  private drawPlayer(): void {
+    this.player.position = this.scalePoint(this.state.player.physics.position()).toPixi()
     this.player.rotation = this.state.player.physics.rotation()
-
+  }
+  
+  private drawViewport(): void {
     // never scroll beyond the edges of the map + cast to int to avoid graphics glitches
-    this.viewport.x = Math.min(Math.max(0, this.player.x - this.canvas.width / 3), this.state.world.tileMap.mapWidth * this.state.world.tileMap.tileSize - this.viewport.width)
+    this.viewport.x = Math.min(Math.max(0, this.player.x - this.canvas.width / 3), this.scaleScalar(this.state.world.tileMap.mapWidth) - this.viewport.width)
     this.stage.x = -this.viewport.x
     this.stats.x = this.viewport.x + 10
-    
+  }
+  
+  private drawStats(): void {
     this.stats.text =
       "p: " + this.vectorString(this.state.player.physics.position()) + "\n" +
       "v: " + this.vectorString(this.state.player.physics.velocity()) + "\n" +
       "fps: " + ~~PIXI.ticker.shared.FPS + "\n"
-    
+  }
+  
+  private drawMap(): void {
     var playerPosition = this.state.player.physics.position()
-    
     // only draw what's visible - this gives us a huge performance boost
     for (var layerName in this.layers) {
-        this.layers[layerName].children.forEach(tile => {
-            var bounds = tile.getBounds()
-            // we don't care about y because we only scroll horizontally
-            tile.visible =
-              this.viewport.contains(playerPosition.x * this.state.world.tileMap.tileSize, 0) ||
-                this.viewport.contains(playerPosition.x * this.state.world.tileMap.tileSize + bounds.width, 0)
-        })
+      this.layers[layerName].children.forEach(tile => {
+        var bounds = tile.getBounds()
+        // we don't care about y because we only scroll horizontally
+        tile.visible =
+          this.viewport.contains(this.scaleScalar(playerPosition.x), 0) ||
+            this.viewport.contains(this.scaleScalar(playerPosition.x) + bounds.width, 0)
+      })
     }
-    
-    // hitboxes
-    this.stage.removeChild(this.contactBoxes)
-    this.stage.removeChild(this.playerBox)
-    if (this.hitboxesEnabled) {
-      this.contactBoxes = this.contactBoxesShape()
-      this.playerBox = this.playerShape()
-      // console.log(this.playerBox.pivot)
-      // this.playerBox.pivot = new PIXI.Point(this.playerBox.position.x + 32, this.playerBox.position.y + 16)
-      // this.playerBox.position = new PIXI.Point(this.state.player.position().x, this.state.player.position().y)
-      this.playerBox.rotation = this.state.player.physics.rotation()
-      this.stage.addChild(this.contactBoxes)
-      this.stage.addChild(this.playerBox)
-    }
-        
-    
-    var mapPartition = <K, V>(xs: Immutable.Map<K, V>, p: (v: V, k: K) => boolean): Array<Immutable.Map<K, V>> => {
-      var [a, b] = [Immutable.Map<K, V>(), Immutable.Map<K, V>()] 
+  }
+  
+  private mapPartition<K, V>(xs: Immutable.Map<K, V>, p: (v: V, k: K) => boolean): Array<Immutable.Map<K, V>> {
+    var [a, b] = [Immutable.Map<K, V>(), Immutable.Map<K, V>()] 
 
-      xs.forEach((v, k) => { if (p(v, k)) a = a.set(k, v); else b = b.set(k, v); })
-      return [a, b]
-    }
+    xs.forEach((v, k) => { if (p(v, k)) a = a.set(k, v); else b = b.set(k, v); })
+    return [a, b]
+  }
+  
+  private drawExplodables<A extends Explodable>(
+    explodables: Immutable.Set<A>,
+    shapeCache: Immutable.Map<A, PIXI.DisplayObject>,
+    shapeForExplodable: (e: A) => PIXI.DisplayObject
+  ): Immutable.Map<A, PIXI.DisplayObject> {
+    var [aliveShapes, deadShapes] = this.mapPartition(shapeCache, (shape, explodable) => {
+      return explodables.has(explodable)
+    })
+    var [explodedAliveShapes, unexplodedAliveShapes] = this.mapPartition(aliveShapes, (shape, explodable) => {
+      return explodable.hasExploded && !(shapeCache.get(explodable) instanceof PIXI.extras.MovieClip)
+    })
+    var newUnexplodedShapes = explodables.reduce<Immutable.Map<A, PIXI.DisplayObject>>((cache, shape, explodable) => {
+      if (shapeCache.has(explodable)) return cache; else return cache.set(explodable, shapeForExplodable(explodable)) // let's hope it didn't explode yet  
+    }, Immutable.Map<A, PIXI.DisplayObject>())
+    var newExplodedShapes = explodedAliveShapes.map((shape, explodable) => {
+      var movie = new PIXI.extras.MovieClip(this.explosionFrames);
+      shapeCache.set(explodable, movie)
+      movie.animationSpeed = this.explosionFrames.length / PIXI.ticker.shared.FPS // 1s whole movie
+      movie.loop = false
+      return movie
+    })
     
-    var drawExplodables = <A extends Explodable>(explodables: Immutable.Set<A>, shapeCache: Immutable.Map<A, PIXI.DisplayObject>, shapeForExplodable: (e: A) => PIXI.DisplayObject) => {
-      var [aliveShapes, deadShapes] = mapPartition(shapeCache, (shape, explodable) => {
-        return explodables.has(explodable)
-      })
-      var [explodedAliveShapes, unexplodedAliveShapes] = mapPartition(aliveShapes, (shape, explodable) => {
-        return explodable.hasExploded && !(shapeCache.get(explodable) instanceof PIXI.extras.MovieClip)
-      })
-      var newUnexplodedShapes = explodables.reduce<Immutable.Map<A, PIXI.DisplayObject>>((cache, shape, explodable) => {
-        if (shapeCache.has(explodable)) return cache; else return cache.set(explodable, shapeForExplodable(explodable)) // Let's hope it didn't explode yet  
-      }, Immutable.Map<A, PIXI.DisplayObject>())
-      var newExplodedShapes = explodedAliveShapes.map((shape, explodable) => {
-        var movie = new PIXI.extras.MovieClip(this.explosionFrames);
-        shapeCache.set(explodable, movie)
-        movie.animationSpeed = this.explosionFrames.length / PIXI.ticker.shared.FPS // 1s whole movie
-        movie.loop = false
-        return movie
-      })
+    var allAliveShapes = newUnexplodedShapes.merge(newExplodedShapes).merge(unexplodedAliveShapes)
+    allAliveShapes.forEach((shape, explodable) => {
+      shape.position = this.scalePoint(explodable.physics.position()).toPixi()
       
-      deadShapes.merge(explodedAliveShapes).forEach((shape, explodable) => this.stage.removeChild(shape))
-      newUnexplodedShapes.merge(newExplodedShapes).forEach((shape, explodable) => this.stage.addChild(shape))
-      newExplodedShapes.forEach(movie => movie.play())
-      
-      var allAliveShapes = newUnexplodedShapes.merge(newExplodedShapes).merge(unexplodedAliveShapes)
-      allAliveShapes.forEach((shape, explodable) => {
-        var position = explodable.physics.position()
-        shape.x = position.x * this.state.world.tileMap.tileSize
-        shape.y = position.y * this.state.world.tileMap.tileSize
-        
-        if (!explodable.hasExploded) {
-          shape.rotation = explodable.physics.rotation()
-        }
-      })
-      
-      return allAliveShapes
-    }
+      if (!explodable.hasExploded) {
+        shape.rotation = explodable.physics.rotation()
+      }
+    })
     
-    this.bombShapes = drawExplodables(Immutable.Set(this.state.player.bombs), this.bombShapes, b => this.bombShape(b))
-    this.rocketShapes = drawExplodables(Immutable.Set(this.state.player.rockets), this.rocketShapes, r => this.rocketShape(r))
+    deadShapes.merge(explodedAliveShapes).forEach((shape, explodable) => this.stage.removeChild(shape))
+    newUnexplodedShapes.merge(newExplodedShapes).forEach((shape, explodable) => this.stage.addChild(shape))
+    newExplodedShapes.forEach(movie => movie.play())
+    
+    return allAliveShapes
+  }
+  
+  private drawBombs(): void {
+    this.bombShapes = this.drawExplodables(Immutable.Set(this.state.player.bombs), this.bombShapes, b => this.bombShape(b))
+  }
+  
+  private drawRockets(): void {
+    this.rocketShapes = this.drawExplodables(Immutable.Set(this.state.player.rockets), this.rocketShapes, r => this.rocketShape(r))
+  }
+    
+  update() {
+    this.drawPlayer()
+    this.drawViewport()
+    this.drawStats()
+    this.drawMap()
+    this.drawBombs()
+    this.drawRockets()
+    this.drawHitBoxes()
   }
 }

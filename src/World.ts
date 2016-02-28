@@ -1,11 +1,13 @@
 /// <reference path="../typings/physicstype2d/physicstype2d.d.ts" />
 /// <reference path="../typings/immutable/immutable.d.ts" />
 /// <reference path="TileMap.ts" />
+/// <reference path="Point.ts" />
 
 enum ObjectType {
   Player,
   Rocket,
-  Bomb
+  Bomb,
+  Soldier
 }
 
 enum CollisionCategory {
@@ -24,11 +26,11 @@ class PhysicsObject {
   ) {}
   
   position(): Point {
-    return this.body.GetPosition()
+    return Point.fromPhysics(this.body.GetPosition())
   }
   
   velocity(): Point {
-    return this.body.GetLinearVelocity()
+    return Point.fromPhysics(this.body.GetLinearVelocity())
   }
   
   setVelocity(velocity: Point): void {
@@ -56,7 +58,7 @@ class PhysicsObject {
   }
   
   worldVector(point: Point): Point {
-    return this.body.GetWorldVector(new PhysicsType2d.Vector2(point.x, point.y))
+    return Point.fromPhysics(this.body.GetWorldVector(point.toPhysics()))
   }
 }
 
@@ -87,7 +89,7 @@ class World {
   public player: PhysicsObject
   public bombs: Immutable.Set<PhysicsObject> = Immutable.Set<PhysicsObject>()
   public rockets: Immutable.Set<PhysicsObject> = Immutable.Set<PhysicsObject>()
-
+  public soldiers: Immutable.Set<PhysicsObject> = Immutable.Set<PhysicsObject>()
   
   
   private bodyToPhysicsObject(body: PhysicsType2d.Dynamics.Body): PhysicsObject {
@@ -163,6 +165,45 @@ class World {
     playerBody.SetUserData(ObjectType.Player)
     var physicsObject = new PhysicsObject(playerBody, this)
     this.player = physicsObject
+    
+    return physicsObject
+  }
+  
+  createSoldierPhysics() {
+
+    var bodyDef = new PhysicsType2d.Dynamics.BodyDefinition();
+    bodyDef.type = PhysicsType2d.Dynamics.BodyType.DYNAMIC;
+    bodyDef.position = new PhysicsType2d.Vector2(50, 15);
+    bodyDef.fixedRotation = true
+                
+    var body = this.world.CreateBody(bodyDef);
+
+    var shape0 = new PhysicsType2d.Collision.Shapes.CircleShape();
+    shape0.m_p = new PhysicsType2d.Vector2(0.5, 0.5)
+    shape0.m_radius = 0.5
+
+    var fixtureDef0 = new PhysicsType2d.Dynamics.FixtureDefinition();
+    fixtureDef0.shape = shape0;
+    fixtureDef0.density = 1.0;
+    fixtureDef0.friction = 0.3;
+    fixtureDef0.filter.categoryBits = CollisionCategory.Default
+    fixtureDef0.filter.maskBits = CollisionCategory.Default | CollisionCategory.FriendlyWeapon
+    body.CreateFixtureFromDefinition(fixtureDef0);
+
+    var shape1 = new PhysicsType2d.Collision.Shapes.CircleShape();
+    shape1.m_p = new PhysicsType2d.Vector2(0.5, 1.5)
+    shape1.m_radius = 0.5
+    var fixtureDef1 = new PhysicsType2d.Dynamics.FixtureDefinition();
+    fixtureDef1.shape = shape1;
+    fixtureDef1.density = 1.0;
+    fixtureDef1.friction = 0.3;
+    fixtureDef1.filter.categoryBits = CollisionCategory.Default
+    fixtureDef1.filter.maskBits = CollisionCategory.Default | CollisionCategory.FriendlyWeapon
+    body.CreateFixtureFromDefinition(fixtureDef1);
+    
+    body.SetUserData(ObjectType.Soldier)
+    var physicsObject = new PhysicsObject(body, this)
+    this.soldiers = this.soldiers.add(physicsObject)
     
     return physicsObject
   }
