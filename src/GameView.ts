@@ -168,11 +168,11 @@ class GameView {
   }
   
   private strokedFixtureShape(fixture: PhysicsType2d.Dynamics.Fixture, color: number): PIXI.DisplayObject {
+    var fixtureShape = null;
     switch (fixture.GetType()) {
       case PhysicsType2d.Collision.Shapes.ShapeType.CIRCLE:
         var circle = <PhysicsType2d.Collision.Shapes.CircleShape>fixture.GetShape()
-        return this.strokedCircleShape(new Point(circle.m_p.x, circle.m_p.y), circle.m_radius, color)
-        break;
+        fixtureShape = this.strokedCircleShape(new Point(circle.m_p.x, circle.m_p.y), circle.m_radius, color)
         
       case PhysicsType2d.Collision.Shapes.ShapeType.POLYGON:
         var shape = <PhysicsType2d.Collision.Shapes.PolygonShape>fixture.GetShape()
@@ -180,13 +180,13 @@ class GameView {
         shape.m_vertices.forEach((v) => {
           polygon.push(new Point(v.x, v.y))
         })
-        return this.strokedPolygonShape(polygon, color)
+        fixtureShape = this.strokedPolygonShape(polygon, color)
     
       default:
-        console.error("GameView", "fixtureShape", "unsupported fixture shape", fixture.GetType())
-        return new PIXI.Container()
-        break;
+        console.error("GameView", "strokedFixtureShape", "unsupported fixture shape", fixture.GetType())
+        fixtureShape = new PIXI.Container()
     }
+    return fixtureShape
   }
   
   private scaleScalar(x: number): number {

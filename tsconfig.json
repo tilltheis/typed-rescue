@@ -1,0 +1,8 @@
+{
+  "compileOnSave": true,
+  "compilerOptions": {
+    "outFile": "lib/rescue.js",
+    "sourceMap": true,
+    "watch": true
+  }
+}
