@@ -1,5 +1,5 @@
 # Typed Rescue
-For The Special People
+Basic 2D side-scroller for the special people.
 
 # Building
 `tsc` or build it continually with `fswatch -o src | xargs -n1 -I{} sh -c 'printf ... ; tsc ; echo done ;'`
